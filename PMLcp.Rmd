@@ -1,0 +1,90 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Michael Kolb"
+date: "March 3, 2018"
+output: html_document
+---
+
+# Executive Summary
+
+During the following analysis of weight lifting exercise data, train and test datasets are downloaded from the internet and R's caret and randomForest packages are utlized to 1) split train data into myTrain and myTest sets, 2) clean myTrain data such that robust variables will be used to generate test predictions, 3) create a random forest model to predict exercise activity from myTrain2 data, 4) crossvalidate the random forest model with myTest data, and 5) apply the random forest model to generate final test predictions for the Practical Machine Learning Course Project Prediction Quiz.
+
+# Download train and test data
+
+```{r}
+if (!file.exists("trainData.csv")) {
+  download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", 
+  destfile="trainData.csv")
+}
+
+if (!file.exists("testData.csv")) {
+  download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", 
+  destfile="testData.csv")
+}
+
+train <- read.csv("trainData.csv", na.strings = c("NA","#DIV/0!",""))
+test <- read.csv("testData.csv", na.strings = c("NA","#DIV/0!",""))
+```
+
+# Call caret and randomForest packages
+
+```{r, message=FALSE}
+library(caret)
+library(randomForest)
+```
+
+## Split train data into myTrain and myTest sets
+
+```{r}
+inTrain <- createDataPartition(train$classe, p=0.6, list=FALSE)
+myTrain <- train[inTrain, ]
+myTest <- train[-inTrain, ]
+```
+
+## Clean myTrain data
+
+Remove test subject and time stamp variables from myTrain
+
+```{r}
+myTrain1 <- myTrain[,8:length(myTrain)]
+```
+
+Remove sparse variables from myTrain1
+
+```{r}
+myTrain2 <- myTrain1
+for (i in 1:length(myTrain1)) {
+  if (sum(is.na(myTrain1[ , i])) / nrow(myTrain) >= .6) {
+    for (j in 1:length(myTrain2)) {
+      if (length(grep(names(myTrain1[i]), names(myTrain2)[j]))==1) {
+        myTrain2 <- myTrain2[ , -j]
+      }
+    }
+  }
+}
+```
+
+## Create random forest model with tidy myTrain2 data
+
+```{r}
+set.seed(02-28-2018)
+
+rf <- randomForest(classe ~ ., data = myTrain2)
+print(rf)
+```
+
+## Crossvalidate random forest model
+
+```{r}
+rfPredict <- predict(rf, myTest, type = "class")
+confusionMatrix(rfPredict, myTest$classe)
+```
+
+Confusion matrix results from myTest predictions indicate expected out of sample error of 1 - 0.9936 = 0.0064.
+
+## Predict exercise classes for quiz
+
+```{r}
+rfPredict2 <- predict(rf, test, type = "class")
+print(rfPredict2)
+```
